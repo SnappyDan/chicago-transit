@@ -7,6 +7,10 @@ from confluent_kafka import avro
 from confluent_kafka.admin import AdminClient, NewTopic
 from confluent_kafka.avro import AvroProducer
 
+from confluent_kafka import SerializingProducer
+from confluent_kafka.schema_registry import SchemaRegistryClient
+from confluent_kafka.schema_registry.avro import AvroSerializer
+
 logger = logging.getLogger(__name__)
 
 
@@ -39,7 +43,9 @@ class Producer:
         #
         self.broker_properties = {
             # TODO
+            'bootstrap.servers': 'PLAINTEXT://localhost:9092, PLAINTEXT://localhost:9093, PLAINTEXT://localhost:9094',
             # TODO
+            'schema.registry.url': 'http://localhost:8081'
             # TODO
         }
 
@@ -48,8 +54,26 @@ class Producer:
             self.create_topic()
             Producer.existing_topics.add(self.topic_name)
 
+
+        schema_registry_conf = {'url': self.broker_properties['schema.registry.url']}
+        schema_registry_client = SchemaRegistryClient(schema_registry_conf)
+
+        key_serializer = AvroSerializer(schema_registry_client=schema_registry_client,
+                                          schema_str=self.key_schema,
+                                          to_dict=None)
+        
+        value_serializer = AvroSerializer(schema_registry_client=schema_registry_client,
+                                            schema_str=self.value_schema,
+                                             to_dict=None)
+
+        producer_conf = {'bootstrap.servers': self.broker_properties['bootstrap.servers'],
+                     'key.serializer': key_serializer,
+                     'value.serializer': value_serializer}
+
+        self.producer = SerializingProducer(producer_conf)
+
         # TODO: Configure the AvroProducer
-        # self.producer = AvroProducer(
+        #self.producer = AvroProducer(
         # )
 
     def create_topic(self):
